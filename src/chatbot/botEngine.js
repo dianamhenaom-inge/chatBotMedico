@@ -330,3 +330,22 @@ function saveVitalRecord(context, store) {
         context: {...context, vitals: undefined},
     }
 }
+
+/**
+ * Cierra la sesión actual del usuario.
+ *
+ * Reinicia el contexto de conversación y vuelve al estado inicial
+ * solicitando nuevamente el nombre del paciente.
+ *
+ * @returns {Object} Respuesta del chatbot reiniciando la conversación.
+ */
+function handleLogout() {
+    return {
+        messages: [
+            msg('Sesión cerrada. ¡Hasta pronto! 👋'),
+            msg('Por favor, ingresa tu nombre completo:')
+        ],
+        nextState: STATES.WELCOME,
+        context: {},
+    }
+}
