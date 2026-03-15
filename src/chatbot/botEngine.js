@@ -41,7 +41,10 @@ export function process(input, state, context, store) {
  * Devuelve los mensajes iniciales de bienvenida al abrir el chat.
  * @returns {Array<{ type: string, text: string }>}
  */
+// ── Mensaje de bienvenida inicial ───────────────────────────────────────────
 export function getWelcomeMessages() {
-
-    return []
+    return [
+        msg('👋 Bienvenido al ChatBot de Monitoreo de Hipertensión'),
+        msg('¿Quién eres?\n  1️⃣  Paciente\n  2️⃣  Médico'),
+    ]
 }
