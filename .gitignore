@@ -1,8 +1,36 @@
-#Configuramos .gitgnore
+#Configuramos .gitgnore para Vue + Node js
 
+# Dependencias
 node_modules/
+
+# Build
 dist/
+build/
+
+# Archivos de entorno
 .env
 .env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Sistema operativo
 .DS_Store
+Thumbs.db
+
+# IDEs
 .vscode/
+.idea/
+
+# Archivos temporales
+*.tmp
+*.log
+
+# Coverage
+coverage/
+
+# Archivos generados
+*.cache
