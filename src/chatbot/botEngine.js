@@ -301,3 +301,32 @@ export function getWelcomeMessages() {
         msg('¿Quién eres?\n  1️⃣  Paciente\n  2️⃣  Médico'),
     ]
 }
+
+
+/**
+ * Guarda un registro de signos vitales del paciente en el store.
+ *
+ * Toma los valores de signos vitales almacenados temporalmente en el contexto
+ * de la conversación y los persiste asociados al paciente actual.
+ * Luego devuelve al usuario al menú principal del paciente.
+ *
+ * @param {Object} context - Contexto actual de la conversación.
+ * @param {Object} context.currentUser - Paciente autenticado.
+ * @param {Object} context.vitals - Signos vitales registrados durante la conversación.
+ * @param {Object} store - Almacenamiento de datos del sistema.
+ * @returns {Object} Respuesta del motor del chatbot con mensajes y siguiente estado.
+ */
+function saveVitalRecord(context, store) {
+    const record = store.addRecord(context.currentUser.id, {
+        ...context.vitals
+    })
+
+    return {
+        messages: [
+            ok('✅ Signos vitales registrados exitosamente.'),
+            msg(PATIENT_MENU_TEXT)
+        ],
+        nextState: STATES.PATIENT_MENU,
+        context: {...context, vitals: undefined},
+    }
+}
