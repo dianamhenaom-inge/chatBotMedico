@@ -12,11 +12,23 @@
 
 import {reactive} from 'vue'
 
+/**
+ * Médicos iniciales disponibles en el sistema.
+ * Se cargan solo si no existen datos persistidos.
+ */
 const SEED_DOCTORS = [
     {id: 'doc1', name: 'Dr. García', password: '1234'},
     {id: 'doc2', name: 'Dra. Martínez', password: '5678'},
 ]
 
+/**
+ * Carga un valor desde localStorage.
+ *
+ * @template T
+ * @param {string} key
+ * @param {T} fallback
+ * @returns {T}
+ */
 function load(key, fallback) {
     try {
         const raw = localStorage.getItem(key)
@@ -27,6 +39,12 @@ function load(key, fallback) {
     }
 }
 
+/**
+ * Guarda un valor en localStorage.
+ *
+ * @param {string} key
+ * @param {any} value
+ */
 function save(key, value) {
     try {
         localStorage.setItem(key, JSON.stringify(value))
@@ -35,37 +53,74 @@ function save(key, value) {
     }
 }
 
+/**
+ * Estado reactivo global del store.
+ */
 const state = reactive({
     patients: load('patients', []),
     doctors: load('doctors', SEED_DOCTORS),
     records: load('records', []),
 })
 
+/**
+ * Persiste el estado actual en localStorage.
+ */
 function persist() {
     save('patients', state.patients)
     save('doctors', state.doctors)
     save('records', state.records)
 }
 
+/**
+ * Normaliza un nombre para comparaciones.
+ *
+ * @param {string} name
+ * @returns {string}
+ */
 function normalizeName(name) {
     return name.trim().toLowerCase()
 }
 
+/**
+ * Genera un identificador único simple.
+ *
+ * @param {string} prefix
+ * @returns {string}
+ */
 function generateId(prefix) {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
 }
 
+/**
+ * Devuelve todos los pacientes registrados.
+ *
+ * @returns {Array}
+ */
 function getPatients() {
     return state.patients
 }
 
+/**
+ * Busca un paciente por nombre (insensible a mayúsculas).
+ *
+ * @param {string} name
+ * @returns {object|undefined}
+ */
 function findPatient(name) {
     const normalized = normalizeName(name)
+
     return state.patients.find(
         p => normalizeName(p.name) === normalized
     )
 }
 
+/**
+ * Busca un médico por nombre y contraseña.
+ *
+ * @param {string} name
+ * @param {string} password
+ * @returns {object|undefined}
+ */
 function findDoctor(name, password) {
     const normalized = normalizeName(name)
 
@@ -74,7 +129,14 @@ function findDoctor(name, password) {
     )
 }
 
+/**
+ * Devuelve un paciente existente o crea uno nuevo si no existe.
+ *
+ * @param {string} name
+ * @returns {object}
+ */
 function getOrCreatePatient(name) {
+
     let patient = findPatient(name)
 
     if (!patient) {
@@ -90,15 +152,38 @@ function getOrCreatePatient(name) {
     return patient
 }
 
+/**
+ * Obtiene los registros asociados a un paciente.
+ *
+ * @param {string} patientId
+ * @returns {Array}
+ */
 function getRecordsByPatient(patientId) {
-    return state.records.filter(r => r.patientId === patientId)
+    return state.records.filter(
+        r => r.patientId === patientId
+    )
 }
 
+/**
+ * Crea un registro de signos vitales.
+ *
+ * @param {string} patientId
+ * @param {object} vitals
+ * @param {number} vitals.systolic
+ * @param {number} vitals.diastolic
+ * @param {number} vitals.heartRate
+ * @param {string} [vitals.dateTime]
+ * @param {number|null} [vitals.temperature]
+ * @param {number|null} [vitals.oxygenSat]
+ *
+ * @returns {object}
+ */
 function addRecord(patientId, vitals) {
 
     const record = {
         id: generateId('r'),
         patientId,
+
         dateTime: vitals.dateTime || new Date().toISOString(),
 
         systolic: vitals.systolic,
@@ -117,8 +202,17 @@ function addRecord(patientId, vitals) {
     return record
 }
 
+/**
+ * Elimina un registro por su ID.
+ *
+ * @param {string} recordId
+ * @returns {boolean}
+ */
 function deleteRecord(recordId) {
-    const idx = state.records.findIndex(r => r.id === recordId)
+
+    const idx = state.records.findIndex(
+        r => r.id === recordId
+    )
 
     if (idx !== -1) {
         state.records.splice(idx, 1)
@@ -129,8 +223,18 @@ function deleteRecord(recordId) {
     return false
 }
 
+/**
+ * Agrega o reemplaza la observación de un registro.
+ *
+ * @param {string} recordId
+ * @param {string} observation
+ * @returns {boolean}
+ */
 function addObservation(recordId, observation) {
-    const record = state.records.find(r => r.id === recordId)
+
+    const record = state.records.find(
+        r => r.id === recordId
+    )
 
     if (record) {
         record.observation = observation.trim()
@@ -141,6 +245,11 @@ function addObservation(recordId, observation) {
     return false
 }
 
+/**
+ * Composable que expone la API del store.
+ *
+ * @returns {object}
+ */
 export function useStore() {
     return {
         getPatients,
