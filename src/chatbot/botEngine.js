@@ -1,24 +1,24 @@
 /**
  * botEngine.js
  * ---------------
- * Motor del chatbot implementado como máquina de estados (State Machine).
+ * Motor del chatbot implementado como máquina de estados.
  *
- * Flujo:
- *   1. El usuario envía un mensaje
- *   2. process() evalúa el estado actual + el input
- *   3. Devuelve { messages, nextState, context }
- *   4. ChatWindow actualiza el estado y muestra los mensajes
+ * Patrón: State Machine
+ *   - Cada estado define cómo procesar la entrada del usuario.
+ *   - process() recibe el input + contexto actual y devuelve:
+ *       { messages, nextState, context }
+ *   - Los mensajes pueden tener tipo 'bot' | 'bot-alert' | 'bot-success'.
  *
- *  Contexto (context):
- *  Objeto mutable que acumula datos a lo largo de la conversación
- *  (e.g., usuario activo, signos vitales en curso, selecciones temporales).
- *
- *
- * @param {string} input      - Texto ingresado por el usuario
- * @param {string} state      - Estado actual (ver states.js)
- * @param {object} context    - Datos acumulados de la sesión
- * @param {object} store      - API del dataStore
+ * Contexto (context):
+ *   Objeto mutable que acumula datos a lo largo de la conversación
+ *   (e.g., usuario activo, signos vitales en curso, selecciones temporales).
  */
+
+
+import {STATES} from './states.js'
+import {formatRecord, getVitalAlert, RANGES, validateNumber} from './validators.js'
+
+// ── Helpers internos ────────────────────────────────────────────────────────
 
 /** Crea un mensaje de tipo bot */
 const msg = (text) => ({type: 'bot', text})
@@ -33,6 +33,24 @@ const PATIENT_MENU_TEXT = `¿Qué deseas hacer?
   3️⃣  Eliminar un registro
   4️⃣  Cerrar sesión`
 
+/** Menú del médico */
+const DOCTOR_MENU_TEXT = `¿Qué deseas hacer?
+  1️⃣  Ver lista de pacientes
+  2️⃣  Ver registros de un paciente
+  3️⃣  Agregar observación a un registro
+  4️⃣  Cerrar sesión`
+
+// ── Motor principal ─────────────────────────────────────────────────────────
+
+/**
+ * Procesa la entrada del usuario según el estado actual.
+ *
+ * @param {string}   input      - Texto ingresado por el usuario
+ * @param {string}   state      - Estado actual del bot (ver STATES)
+ * @param {object}   context    - Datos acumulados de la sesión (mutable)
+ * @param {object}   store      - API del dataStore
+ * @returns {{ messages: array, nextState: string, context: object }}
+ */
 export function process(input, state, context, store) {
     const trimmed = input.trim()
 
@@ -348,7 +366,6 @@ export function process(input, state, context, store) {
             return {messages: [err('Estado desconocido. Reiniciando...')], nextState: STATES.WELCOME, context: {}}
     }
 }
-
 
 // ── Mensaje de bienvenida inicial ───────────────────────────────────────────
 export function getWelcomeMessages() {
