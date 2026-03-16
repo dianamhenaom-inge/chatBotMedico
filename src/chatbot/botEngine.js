@@ -183,18 +183,6 @@ export function process(input, state, context, store) {
             }
         }
 
-        case STATES.REG_HEART_RATE: {
-            const result = validateNumber(trimmed, {...RANGES.heartRate, label: 'frecuencia cardíaca'})
-            if (!result.valid) return {messages: [err(result.error)], nextState: state, context}
-
-            const alert = getVitalAlert('heartRate', result.value)
-            const msgs = alert ? [warn(alert)] : []
-            return {
-                messages: [...msgs, msg('¿Deseas registrar la TEMPERATURA? (s/n)')],
-                nextState: STATES.REG_TEMP_ASK,
-                context: {...context, vitals: {...context.vitals, heartRate: result.value}},
-            }
-        }
 
         case STATES.REG_TEMP_ASK: {
             if (trimmed.toLowerCase() === 's') {
@@ -208,6 +196,19 @@ export function process(input, state, context, store) {
                 messages: [msg('¿Deseas registrar la SATURACIÓN DE OXÍGENO? (s/n)')],
                 nextState: STATES.REG_OXSAT_ASK,
                 context,
+            }
+        }
+
+        case STATES.REG_HEART_RATE: {
+            const result = validateNumber(trimmed, {...RANGES.heartRate, label: 'frecuencia cardíaca'})
+            if (!result.valid) return {messages: [err(result.error)], nextState: state, context}
+
+            const alert = getVitalAlert('heartRate', result.value)
+            const msgs = alert ? [warn(alert)] : []
+            return {
+                messages: [...msgs, msg('¿Deseas registrar la TEMPERATURA? (s/n)')],
+                nextState: STATES.REG_TEMP_ASK,
+                context: {...context, vitals: {...context.vitals, heartRate: result.value}},
             }
         }
 
