@@ -176,7 +176,11 @@ export function process(input, state, context, store) {
             }
             const alert = getVitalAlert('diastolic', result.value)
             const msgs = alert ? [warn(alert)] : []
-            return {}
+            return {
+                messages: [...msgs, msg('📍 Ingresa la FRECUENCIA CARDÍACA (lpm)\n   Rango aceptado: 30–220')],
+                nextState: STATES.REG_HEART_RATE,
+                context: {...context, vitals: {...context.vitals, diastolic: result.value}},
+            }
         }
 
         case STATES.REG_HEART_RATE: {
