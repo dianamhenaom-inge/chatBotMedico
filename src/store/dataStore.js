@@ -10,136 +10,146 @@
  *  - records   : registros de signos vitales (vinculados a patientId)
  */
 
-import { reactive } from 'vue'
+import {reactive} from 'vue'
 
-// ── Datos iniciales de médicos ─────────────────────────────────────────────
 const SEED_DOCTORS = [
-  { id: 'doc1', name: 'Dr. García',   password: '1234' },
-  { id: 'doc2', name: 'Dra. Martínez', password: '5678' },
+    {id: 'doc1', name: 'Dr. García', password: '1234'},
+    {id: 'doc2', name: 'Dra. Martínez', password: '5678'},
 ]
 
-// ── Helpers de persistencia ────────────────────────────────────────────────
 function load(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? JSON.parse(raw) : fallback
-  } catch {
-    return fallback
-  }
+    try {
+        const raw = localStorage.getItem(key)
+        return raw ? JSON.parse(raw) : fallback
+    } catch (error) {
+        console.warn('Error loading', key, error)
+        return fallback
+    }
 }
 
 function save(key, value) {
-  localStorage.setItem(key, JSON.stringify(value))
+    try {
+        localStorage.setItem(key, JSON.stringify(value))
+    } catch (error) {
+        console.error('Error saving', key, error)
+    }
 }
 
-// ── Estado reactivo ────────────────────────────────────────────────────────
 const state = reactive({
-  patients: load('patients', []),
-  doctors:  load('doctors',  SEED_DOCTORS),
-  records:  load('records',  []),
+    patients: load('patients', []),
+    doctors: load('doctors', SEED_DOCTORS),
+    records: load('records', []),
 })
 
-// Persiste automáticamente cada vez que se modifica state
-// (se llama manualmente al mutar para no necesitar watchers profundos)
 function persist() {
-  save('patients', state.patients)
-  save('doctors',  state.doctors)
-  save('records',  state.records)
+    save('patients', state.patients)
+    save('doctors', state.doctors)
+    save('records', state.records)
 }
 
-// ── API pública ────────────────────────────────────────────────────────────
+function normalizeName(name) {
+    return name.trim().toLowerCase()
+}
 
-/** Devuelve todos los pacientes */
+function generateId(prefix) {
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+}
+
 function getPatients() {
-  return state.patients
+    return state.patients
 }
 
-/** Busca un paciente por nombre (insensible a mayúsculas) */
 function findPatient(name) {
-  return state.patients.find(
-    p => p.name.toLowerCase() === name.trim().toLowerCase()
-  )
+    const normalized = normalizeName(name)
+    return state.patients.find(
+        p => normalizeName(p.name) === normalized
+    )
 }
 
-/** Busca un médico por nombre e ID */
 function findDoctor(name, password) {
-  return state.doctors.find(
-    d => d.name.toLowerCase() === name.trim().toLowerCase() && d.password === password
-  )
+    const normalized = normalizeName(name)
+
+    return state.doctors.find(
+        d => normalizeName(d.name) === normalized && d.password === password
+    )
 }
 
-/** Crea o devuelve el paciente con ese nombre */
 function getOrCreatePatient(name) {
-  let patient = findPatient(name)
-  if (!patient) {
-    patient = {
-      id:   `p_${Date.now()}`,
-      name: name.trim(),
+    let patient = findPatient(name)
+
+    if (!patient) {
+        patient = {
+            id: generateId('p'),
+            name: name.trim(),
+        }
+
+        state.patients.push(patient)
+        persist()
     }
-    state.patients.push(patient)
-    persist()
-  }
-  return patient
+
+    return patient
 }
 
-/** Devuelve los registros de un paciente */
 function getRecordsByPatient(patientId) {
-  return state.records.filter(r => r.patientId === patientId)
+    return state.records.filter(r => r.patientId === patientId)
 }
 
-/**
- * Agrega un registro de signos vitales.
- * @param {string} patientId
- * @param {object} vitals - { systolic, diastolic, heartRate, dateTime, temperature?, oxygenSat? }
- */
 function addRecord(patientId, vitals) {
-  const record = {
-    id:          `r_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    patientId,
-    dateTime:    vitals.dateTime || new Date().toISOString(),
-    systolic:    vitals.systolic,
-    diastolic:   vitals.diastolic,
-    heartRate:   vitals.heartRate,
-    temperature: vitals.temperature ?? null,
-    oxygenSat:   vitals.oxygenSat  ?? null,
-    observation: null,  // observación del médico
-  }
-  state.records.push(record)
-  persist()
-  return record
+
+    const record = {
+        id: generateId('r'),
+        patientId,
+        dateTime: vitals.dateTime || new Date().toISOString(),
+
+        systolic: vitals.systolic,
+        diastolic: vitals.diastolic,
+        heartRate: vitals.heartRate,
+
+        temperature: vitals.temperature ?? null,
+        oxygenSat: vitals.oxygenSat ?? null,
+
+        observation: null,
+    }
+
+    state.records.push(record)
+    persist()
+
+    return record
 }
 
-/** Elimina un registro por ID */
 function deleteRecord(recordId) {
-  const idx = state.records.findIndex(r => r.id === recordId)
-  if (idx !== -1) {
-    state.records.splice(idx, 1)
-    persist()
-    return true
-  }
-  return false
+    const idx = state.records.findIndex(r => r.id === recordId)
+
+    if (idx !== -1) {
+        state.records.splice(idx, 1)
+        persist()
+        return true
+    }
+
+    return false
 }
 
-/** Agrega u overwrite la observación del médico en un registro */
 function addObservation(recordId, observation) {
-  const record = state.records.find(r => r.id === recordId)
-  if (record) {
-    record.observation = observation.trim()
-    persist()
-    return true
-  }
-  return false
+    const record = state.records.find(r => r.id === recordId)
+
+    if (record) {
+        record.observation = observation.trim()
+        persist()
+        return true
+    }
+
+    return false
 }
 
 export function useStore() {
-  return {
-    getPatients,
-    findPatient,
-    findDoctor,
-    getOrCreatePatient,
-    getRecordsByPatient,
-    addRecord,
-    deleteRecord,
-    addObservation,
-  }
+    return {
+        getPatients,
+        findPatient,
+        findDoctor,
+        getOrCreatePatient,
+        getRecordsByPatient,
+        addRecord,
+        deleteRecord,
+        addObservation,
+    }
 }
