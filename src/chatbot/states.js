@@ -25,4 +25,14 @@ export const STATES = {
     REG_TEMP: 'REG_TEMP',          // Temperatura (opcional)
     REG_OXSAT_ASK: 'REG_OXSAT_ASK',     // ¿Registrar saturación O2?
     REG_OXSAT: 'REG_OXSAT',         // Saturación de oxígeno (opcional)
+
+    // ── Ver / eliminar registros (paciente) ───────────────────
+    VIEW_RECORDS: 'VIEW_RECORDS',      // Mostrar registros del paciente
+    DELETE_SELECT: 'DELETE_SELECT',     // Seleccionar número de registro a eliminar
+
+    // ── Funciones del médico ───────────────────────────────────
+    DOCTOR_PATIENTS: 'DOCTOR_PATIENTS',   // Listar pacientes
+    DOCTOR_VIEW_RECORDS: 'DOCTOR_VIEW_RECORDS', // Ver registros de un paciente
+    DOCTOR_OBS_SELECT: 'DOCTOR_OBS_SELECT', // Seleccionar registro para observación
+    DOCTOR_OBS_WRITE: 'DOCTOR_OBS_WRITE',  // Escribir la observación
 }
