@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { process, getWelcomeMessages } from '../botEngine.js'
-import { STATES } from '../states.js'
+import { process, getWelcomeMessages } from '../chatbot/botEngine.js'
+import { STATES } from '../chatbot/states.js'
 
 // ── Mock del store ────────────────────────────────────────────────────────────
 

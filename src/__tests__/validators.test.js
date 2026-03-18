@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateNumber, getVitalAlert, formatRecord } from '../validators.js'
+import { validateNumber, getVitalAlert, formatRecord } from '../chatbot/validators.js'
 
 // ── validateNumber ────────────────────────────────────────────────────────────
 

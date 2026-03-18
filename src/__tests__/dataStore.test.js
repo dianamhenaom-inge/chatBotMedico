@@ -11,7 +11,7 @@ async function freshStore() {
     // Resetea módulos para obtener estado limpio en cada test
     vi.resetModules()
     vi.mock('vue', () => ({ reactive: (obj) => obj }))
-    const { useStore } = await import('../dataStore.js')
+    const { useStore } = await import('../store/dataStore.js')
     return useStore()
 }
 
