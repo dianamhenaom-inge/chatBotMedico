@@ -184,6 +184,19 @@ export function process(input, state, context, store) {
         }
 
 
+        case STATES.REG_HEART_RATE: {
+            const result = validateNumber(trimmed, {...RANGES.heartRate, label: 'frecuencia cardíaca'})
+            if (!result.valid) return {messages: [err(result.error)], nextState: state, context}
+
+            const alert = getVitalAlert('heartRate', result.value)
+            const msgs = alert ? [warn(alert)] : []
+            return {
+                messages: [...msgs, msg('¿Deseas registrar la TEMPERATURA? (s/n)')],
+                nextState: STATES.REG_TEMP_ASK,
+                context: {...context, vitals: {...context.vitals, heartRate: result.value}},
+            }
+        }
+
         case STATES.REG_TEMP_ASK: {
             if (trimmed.toLowerCase() === 's') {
                 return {
@@ -196,19 +209,6 @@ export function process(input, state, context, store) {
                 messages: [msg('¿Deseas registrar la SATURACIÓN DE OXÍGENO? (s/n)')],
                 nextState: STATES.REG_OXSAT_ASK,
                 context,
-            }
-        }
-
-        case STATES.REG_HEART_RATE: {
-            const result = validateNumber(trimmed, {...RANGES.heartRate, label: 'frecuencia cardíaca'})
-            if (!result.valid) return {messages: [err(result.error)], nextState: state, context}
-
-            const alert = getVitalAlert('heartRate', result.value)
-            const msgs = alert ? [warn(alert)] : []
-            return {
-                messages: [...msgs, msg('¿Deseas registrar la TEMPERATURA? (s/n)')],
-                nextState: STATES.REG_TEMP_ASK,
-                context: {...context, vitals: {...context.vitals, heartRate: result.value}},
             }
         }
 
@@ -379,7 +379,7 @@ export function getWelcomeMessages() {
 // ── Handlers auxiliares ─────────────────────────────────────────────────────
 
 function saveVitalRecord(context, store) {
-    const record = store.addRecord(context.currentUser.id, {
+    store.addRecord(context.currentUser.id, {
         ...context.vitals,
         dateTime: new Date().toISOString(),
     })
@@ -427,16 +427,24 @@ function handleDeleteInit(context, store) {
     }
 }
 
+/** Formatea la lista de pacientes como texto numerado */
+function buildPatientListText(patients) {
+    return patients.map((p, i) => `  ${i + 1}. ${p.name}`).join('\n')
+}
+
+/** Respuesta de lista vacía de pacientes, regresa al menú del médico */
+function noPatientsResponse(context) {
+    return {
+        messages: [msg('No hay pacientes registrados.'), msg(DOCTOR_MENU_TEXT)],
+        nextState: STATES.DOCTOR_MENU,
+        context,
+    }
+}
+
 function handleDoctorListPatients(store, context) {
     const patients = store.getPatients()
-    if (!patients.length) {
-        return {
-            messages: [msg('No hay pacientes registrados aún.'), msg(DOCTOR_MENU_TEXT)],
-            nextState: STATES.DOCTOR_MENU,
-            context,
-        }
-    }
-    const lines = patients.map((p, i) => `  ${i + 1}. ${p.name}`).join('\n')
+    if (!patients.length) return noPatientsResponse(context)
+    const lines = buildPatientListText(patients)
     return {
         messages: [msg(`👥 Pacientes registrados:\n${lines}`), msg(DOCTOR_MENU_TEXT)],
         nextState: STATES.DOCTOR_MENU,
@@ -446,14 +454,8 @@ function handleDoctorListPatients(store, context) {
 
 function handleDoctorSelectPatient(store, context) {
     const patients = store.getPatients()
-    if (!patients.length) {
-        return {
-            messages: [msg('No hay pacientes registrados.'), msg(DOCTOR_MENU_TEXT)],
-            nextState: STATES.DOCTOR_MENU,
-            context,
-        }
-    }
-    const lines = patients.map((p, i) => `  ${i + 1}. ${p.name}`).join('\n')
+    if (!patients.length) return noPatientsResponse(context)
+    const lines = buildPatientListText(patients)
     return {
         messages: [msg(`👥 Selecciona un paciente:\n${lines}`)],
         nextState: STATES.DOCTOR_PATIENTS,
@@ -489,14 +491,8 @@ function handleDoctorViewPatientRecords(trimmed, store, context) {
 
 function handleDoctorSelectPatientForObs(store, context) {
     const patients = store.getPatients()
-    if (!patients.length) {
-        return {
-            messages: [msg('No hay pacientes registrados.'), msg(DOCTOR_MENU_TEXT)],
-            nextState: STATES.DOCTOR_MENU,
-            context,
-        }
-    }
-    const lines = patients.map((p, i) => `  ${i + 1}. ${p.name}`).join('\n')
+    if (!patients.length) return noPatientsResponse(context)
+    const lines = buildPatientListText(patients)
     return {
         messages: [msg(`👥 Selecciona el paciente cuyo registro quieres anotar:\n${lines}`)],
         nextState: STATES.DOCTOR_OBS_SELECT,
