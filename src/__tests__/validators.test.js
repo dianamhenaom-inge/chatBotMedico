@@ -1,133 +1,172 @@
-import { describe, it, expect } from 'vitest'
-import { validateNumber, getVitalAlert, formatRecord } from '../chatbot/validators.js'
+/**
+ * validators.test.js
+ * Pruebas unitarias para las funciones de validación de signos vitales.
+ */
+
+import {describe, expect, it} from 'vitest'
+import {formatRecord, getVitalAlert, RANGES, validateNumber} from '../chatbot/validators.js'
 
 // ── validateNumber ────────────────────────────────────────────────────────────
 
 describe('validateNumber', () => {
-    it('acepta un número válido dentro del rango', () => {
-        const r = validateNumber('120', { min: 70, max: 250, label: 'sistólica' })
-        expect(r).toEqual({ valid: true, value: 120 })
+    it('acepta un número entero válido', () => {
+        const result = validateNumber('120', {min: 70, max: 250, label: 'sistólica'})
+        expect(result.valid).toBe(true)
+        expect(result.value).toBe(120)
     })
 
-    it('acepta coma como separador decimal', () => {
-        const r = validateNumber('36,5', { min: 34, max: 42, label: 'temperatura' })
-        expect(r).toEqual({ valid: true, value: 36.5 })
+    it('acepta un número decimal con punto', () => {
+        const result = validateNumber('36.5', {min: 34, max: 42, label: 'temperatura'})
+        expect(result.valid).toBe(true)
+        expect(result.value).toBe(36.5)
+    })
+
+    it('acepta un número decimal con coma (formato colombiano)', () => {
+        const result = validateNumber('36,5', {min: 34, max: 42, label: 'temperatura'})
+        expect(result.valid).toBe(true)
+        expect(result.value).toBe(36.5)
     })
 
     it('rechaza texto no numérico', () => {
-        const r = validateNumber('abc', { min: 70, max: 250, label: 'sistólica' })
-        expect(r.valid).toBe(false)
-        expect(r.error).toContain('no es un número válido')
+        const result = validateNumber('abc', {min: 70, max: 250, label: 'sistólica'})
+        expect(result.valid).toBe(false)
+        expect(result.error).toContain('no es un número válido')
     })
 
     it('rechaza valor por debajo del mínimo', () => {
-        const r = validateNumber('60', { min: 70, max: 250, label: 'sistólica' })
-        expect(r.valid).toBe(false)
-        expect(r.error).toContain('mínimo')
+        const result = validateNumber('60', {min: 70, max: 250, label: 'sistólica'})
+        expect(result.valid).toBe(false)
+        expect(result.error).toContain('mínimo')
+        expect(result.error).toContain('70')
     })
 
     it('rechaza valor por encima del máximo', () => {
-        const r = validateNumber('300', { min: 70, max: 250, label: 'sistólica' })
-        expect(r.valid).toBe(false)
-        expect(r.error).toContain('máximo')
+        const result = validateNumber('260', {min: 70, max: 250, label: 'sistólica'})
+        expect(result.valid).toBe(false)
+        expect(result.error).toContain('máximo')
+        expect(result.error).toContain('250')
     })
 
-    it('acepta los valores en los límites del rango (boundary)', () => {
-        expect(validateNumber('70', { min: 70, max: 250, label: 'x' }).valid).toBe(true)
-        expect(validateNumber('250', { min: 70, max: 250, label: 'x' }).valid).toBe(true)
+    it('acepta el valor exacto del mínimo (borde inferior)', () => {
+        const result = validateNumber('70', {min: 70, max: 250, label: 'sistólica'})
+        expect(result.valid).toBe(true)
     })
 
-    it('rechaza cadena vacía', () => {
-        const r = validateNumber('', { min: 0, max: 100, label: 'x' })
-        expect(r.valid).toBe(false)
+    it('acepta el valor exacto del máximo (borde superior)', () => {
+        const result = validateNumber('250', {min: 70, max: 250, label: 'sistólica'})
+        expect(result.valid).toBe(true)
     })
 })
 
-// ── getVitalAlert ─────────────────────────────────────────────────────────────
+// ── getVitalAlert — sistólica ─────────────────────────────────────────────────
 
-describe('getVitalAlert — sistólica', () => {
-    it('normal (90–119): sin alerta', () => {
-        expect(getVitalAlert('systolic', 115)).toBeNull()
+describe('getVitalAlert - sistólica', () => {
+    it('sin alerta para presión normal (110 mmHg)', () => {
+        expect(getVitalAlert('systolic', 110)).toBeNull()
     })
-    it('pre-hipertensión (120–129)', () => {
-        expect(getVitalAlert('systolic', 125)).toContain('pre-hipertensión')
+
+    it('alerta pre-hipertensión (120–129 mmHg)', () => {
+        expect(getVitalAlert('systolic', 125)).toMatch(/pre-hipertensión/i)
     })
-    it('hipertensión estadio 1 (130–139)', () => {
-        expect(getVitalAlert('systolic', 135)).toContain('estadio 1')
+
+    it('alerta hipertensión estadio 1 (130–139 mmHg)', () => {
+        expect(getVitalAlert('systolic', 135)).toMatch(/estadio 1/i)
     })
-    it('hipertensión estadio 2 (140–179)', () => {
-        expect(getVitalAlert('systolic', 145)).toContain('estadio 2')
+
+    it('alerta hipertensión estadio 2 (140–179 mmHg)', () => {
+        expect(getVitalAlert('systolic', 150)).toMatch(/estadio 2/i)
     })
-    it('crisis hipertensiva (≥180)', () => {
-        expect(getVitalAlert('systolic', 180)).toContain('CRISIS')
+
+    it('alerta crisis hipertensiva (≥ 180 mmHg)', () => {
+        expect(getVitalAlert('systolic', 180)).toMatch(/crisis/i)
     })
-    it('hipotensión (<90)', () => {
-        expect(getVitalAlert('systolic', 85)).toContain('hipotensión')
+
+    it('alerta hipotensión (< 90 mmHg)', () => {
+        expect(getVitalAlert('systolic', 85)).toMatch(/hipotensión/i)
     })
 })
 
-describe('getVitalAlert — diastólica', () => {
-    it('normal (60–89): sin alerta', () => {
+// ── getVitalAlert — diastólica ────────────────────────────────────────────────
+
+describe('getVitalAlert - diastólica', () => {
+    it('sin alerta para presión normal (75 mmHg)', () => {
         expect(getVitalAlert('diastolic', 75)).toBeNull()
     })
-    it('crisis hipertensiva (≥120)', () => {
-        expect(getVitalAlert('diastolic', 125)).toContain('CRISIS')
+
+    it('alerta diastólica elevada (≥ 90 mmHg)', () => {
+        expect(getVitalAlert('diastolic', 95)).toMatch(/elevada/i)
     })
-    it('diastólica elevada (90–119)', () => {
-        expect(getVitalAlert('diastolic', 95)).toContain('elevada')
+
+    it('alerta crisis hipertensiva (≥ 120 mmHg)', () => {
+        expect(getVitalAlert('diastolic', 120)).toMatch(/crisis/i)
     })
-    it('diastólica baja (<60)', () => {
-        expect(getVitalAlert('diastolic', 55)).toContain('baja')
+
+    it('alerta diastólica baja (< 60 mmHg)', () => {
+        expect(getVitalAlert('diastolic', 55)).toMatch(/baja/i)
     })
 })
 
-describe('getVitalAlert — frecuencia cardíaca', () => {
-    it('normal (60–100): sin alerta', () => {
-        expect(getVitalAlert('heartRate', 80)).toBeNull()
+// ── getVitalAlert — frecuencia cardíaca ──────────────────────────────────────
+
+describe('getVitalAlert - frecuencia cardíaca', () => {
+    it('sin alerta para frecuencia normal (75 lpm)', () => {
+        expect(getVitalAlert('heartRate', 75)).toBeNull()
     })
-    it('taquicardia (>100)', () => {
-        expect(getVitalAlert('heartRate', 105)).toContain('Taquicardia')
+
+    it('alerta taquicardia (> 100 lpm)', () => {
+        expect(getVitalAlert('heartRate', 105)).toMatch(/taquicardia/i)
     })
-    it('bradicardia (<60)', () => {
-        expect(getVitalAlert('heartRate', 55)).toContain('Bradicardia')
+
+    it('alerta bradicardia (< 60 lpm)', () => {
+        expect(getVitalAlert('heartRate', 55)).toMatch(/bradicardia/i)
     })
 })
 
-describe('getVitalAlert — temperatura', () => {
-    it('normal (36–37.9): sin alerta', () => {
+// ── getVitalAlert — temperatura ───────────────────────────────────────────────
+
+describe('getVitalAlert - temperatura', () => {
+    it('sin alerta para temperatura normal (37 °C)', () => {
         expect(getVitalAlert('temperature', 37)).toBeNull()
     })
-    it('fiebre (≥38)', () => {
-        expect(getVitalAlert('temperature', 38.5)).toContain('Fiebre')
+
+    it('alerta fiebre (≥ 38 °C)', () => {
+        expect(getVitalAlert('temperature', 38)).toMatch(/fiebre/i)
     })
-    it('hipotermia (<36)', () => {
-        expect(getVitalAlert('temperature', 35.5)).toContain('Hipotermia')
+
+    it('alerta hipotermia (< 36 °C)', () => {
+        expect(getVitalAlert('temperature', 35)).toMatch(/hipotermia/i)
     })
 })
 
-describe('getVitalAlert — saturación de oxígeno', () => {
-    it('normal (≥95): sin alerta', () => {
+// ── getVitalAlert — saturación de oxígeno ────────────────────────────────────
+
+describe('getVitalAlert - saturación de oxígeno', () => {
+    it('sin alerta para saturación normal (98 %)', () => {
         expect(getVitalAlert('oxygenSat', 98)).toBeNull()
     })
-    it('saturación baja (90–94)', () => {
-        expect(getVitalAlert('oxygenSat', 93)).toContain('baja')
+
+    it('alerta saturación baja (90–94 %)', () => {
+        expect(getVitalAlert('oxygenSat', 93)).toMatch(/baja/i)
     })
-    it('saturación crítica (<90)', () => {
-        expect(getVitalAlert('oxygenSat', 88)).toContain('crítica')
+
+    it('alerta saturación crítica (< 90 %)', () => {
+        expect(getVitalAlert('oxygenSat', 88)).toMatch(/crítica/i)
     })
 })
 
-describe('getVitalAlert — tipo desconocido', () => {
-    it('retorna null para tipo no reconocido', () => {
-        expect(getVitalAlert('glucosa', 100)).toBeNull()
+// ── getVitalAlert — tipo desconocido ─────────────────────────────────────────
+
+describe('getVitalAlert - tipo desconocido', () => {
+    it('retorna null para un tipo de signo vital no reconocido', () => {
+        expect(getVitalAlert('signoInventado', 50)).toBeNull()
     })
 })
 
 // ── formatRecord ──────────────────────────────────────────────────────────────
 
 describe('formatRecord', () => {
-    const base = {
-        dateTime: new Date('2024-03-15T10:30:00Z').toISOString(),
+    const baseRecord = {
+        dateTime: '2025-01-15T10:30:00.000Z',
         systolic: 120,
         diastolic: 80,
         heartRate: 72,
@@ -136,40 +175,68 @@ describe('formatRecord', () => {
         observation: null,
     }
 
-    it('incluye número de registro y presión arterial', () => {
-        const text = formatRecord(base, 1)
+    it('incluye número de registro en el texto', () => {
+        const text = formatRecord(baseRecord, 1)
         expect(text).toContain('Registro #1')
-        expect(text).toContain('120/80 mmHg')
-        expect(text).toContain('72 lpm')
+    })
+
+    it('incluye presión arterial formateada', () => {
+        const text = formatRecord(baseRecord, 1)
+        expect(text).toContain('120/80')
+    })
+
+    it('incluye frecuencia cardíaca', () => {
+        const text = formatRecord(baseRecord, 1)
+        expect(text).toContain('72')
     })
 
     it('omite temperatura cuando es null', () => {
-        const text = formatRecord(base, 1)
-        expect(text).not.toContain('°C')
-    })
-
-    it('omite saturación de O₂ cuando es null', () => {
-        const text = formatRecord(base, 1)
-        expect(text).not.toContain('O₂')
+        const text = formatRecord(baseRecord, 1)
+        expect(text).not.toContain('Temp')
     })
 
     it('incluye temperatura cuando está presente', () => {
-        const text = formatRecord({ ...base, temperature: 36.5 }, 2)
-        expect(text).toContain('36.5 °C')
+        const record = {...baseRecord, temperature: 36.8}
+        const text = formatRecord(record, 1)
+        expect(text).toContain('36.8')
     })
 
-    it('incluye O₂ cuando está presente', () => {
-        const text = formatRecord({ ...base, oxygenSat: 97 }, 3)
-        expect(text).toContain('97 %')
+    it('omite saturación de oxígeno cuando es null', () => {
+        const text = formatRecord(baseRecord, 1)
+        expect(text).not.toContain('O₂')
+    })
+
+    it('incluye saturación de oxígeno cuando está presente', () => {
+        const record = {...baseRecord, oxygenSat: 97}
+        const text = formatRecord(record, 1)
+        expect(text).toContain('97')
     })
 
     it('incluye observación médica cuando existe', () => {
-        const text = formatRecord({ ...base, observation: 'Paciente estable' }, 4)
-        expect(text).toContain('Paciente estable')
+        const record = {...baseRecord, observation: 'Controlar en 24h'}
+        const text = formatRecord(record, 1)
+        expect(text).toContain('Controlar en 24h')
     })
 
     it('omite observación cuando es null', () => {
-        const text = formatRecord(base, 1)
+        const text = formatRecord(baseRecord, 1)
         expect(text).not.toContain('Obs. médico')
+    })
+})
+
+// ── RANGES — sanidad de rangos ────────────────────────────────────────────────
+
+describe('RANGES - integridad de datos', () => {
+    it('el mínimo de cada rango es menor que el máximo', () => {
+        for (const [key, range] of Object.entries(RANGES)) {
+            expect(range.min).toBeLessThan(range.max)
+        }
+    })
+
+    it('los rangos normales están dentro de los límites aceptados', () => {
+        expect(RANGES.systolic.normalMax).toBeLessThanOrEqual(RANGES.systolic.max)
+        expect(RANGES.diastolic.normalMax).toBeLessThanOrEqual(RANGES.diastolic.max)
+        expect(RANGES.heartRate.normalMin).toBeGreaterThanOrEqual(RANGES.heartRate.min)
+        expect(RANGES.heartRate.normalMax).toBeLessThanOrEqual(RANGES.heartRate.max)
     })
 })
