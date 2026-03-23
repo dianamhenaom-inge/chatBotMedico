@@ -1,152 +1,259 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+/**
+ * dataStore.test.js
+ * Pruebas unitarias para el composable useStore (capa de datos).
+ *
+ * Estrategia: se mocka localStorage y se re-importa el módulo en cada test
+ * para garantizar un estado limpio (el state es un singleton de módulo).
+ */
 
-// Mock de Vue para que `reactive` sea un passthrough sin dependencia del DOM
-vi.mock('vue', () => ({
-    reactive: (obj) => obj,
-}))
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Mock de localStorage ──────────────────────────────────────────────────────
+const localStorageMock = (() => {
+    let _store = {}
+    return {
+        getItem: (key) => _store[key] ?? null,
+        setItem: (key, value) => {
+            _store[key] = String(value)
+        },
+        removeItem: (key) => {
+            delete _store[key]
+        },
+        clear: () => {
+            _store = {}
+        },
+    }
+})()
 
-async function freshStore() {
-    // Resetea módulos para obtener estado limpio en cada test
+vi.stubGlobal('localStorage', localStorageMock)
+
+// ── Setup: estado fresco por cada test ───────────────────────────────────────
+let store
+
+beforeEach(async () => {
+    localStorageMock.clear()
     vi.resetModules()
-    vi.mock('vue', () => ({ reactive: (obj) => obj }))
-    const { useStore } = await import('../store/dataStore.js')
-    return useStore()
-}
+    const {useStore} = await import('../store/dataStore.js')
+    store = useStore()
+})
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
+// ── getPatients ───────────────────────────────────────────────────────────────
 
-describe('dataStore — pacientes', () => {
-    beforeEach(() => {
-        localStorage.clear()
+describe('getPatients', () => {
+    it('devuelve lista vacía cuando no hay pacientes', () => {
+        expect(store.getPatients()).toEqual([])
     })
 
-    it('getOrCreatePatient crea un paciente nuevo', async () => {
-        const store = await freshStore()
-        const p = store.getOrCreatePatient('María López')
-        expect(p.name).toBe('María López')
-        expect(p.id).toBeTruthy()
+    it('devuelve los pacientes creados', () => {
+        store.getOrCreatePatient('Ana López')
+        store.getOrCreatePatient('Carlos Ruiz')
+        expect(store.getPatients()).toHaveLength(2)
+    })
+})
+
+// ── getOrCreatePatient ────────────────────────────────────────────────────────
+
+describe('getOrCreatePatient', () => {
+    it('crea un paciente nuevo con nombre y id', () => {
+        const patient = store.getOrCreatePatient('María Gómez')
+        expect(patient.name).toBe('María Gómez')
+        expect(patient.id).toMatch(/^p_/)
     })
 
-    it('getOrCreatePatient retorna el mismo paciente si ya existe', async () => {
-        const store = await freshStore()
-        const p1 = store.getOrCreatePatient('Carlos Ruiz')
-        const p2 = store.getOrCreatePatient('carlos ruiz') // normalización de nombre
+    it('reutiliza el paciente existente (no crea duplicado)', () => {
+        const p1 = store.getOrCreatePatient('Luis Torres')
+        const p2 = store.getOrCreatePatient('Luis Torres')
+        expect(p1.id).toBe(p2.id)
+        expect(store.getPatients()).toHaveLength(1)
+    })
+
+    it('es insensible a mayúsculas al buscar el paciente', () => {
+        const p1 = store.getOrCreatePatient('Pedro Herrera')
+        const p2 = store.getOrCreatePatient('pedro herrera')
         expect(p1.id).toBe(p2.id)
     })
 
-    it('findPatient retorna undefined si no existe', async () => {
-        const store = await freshStore()
-        expect(store.findPatient('Nadie')).toBeUndefined()
-    })
-
-    it('findPatient localiza al paciente sin importar mayúsculas', async () => {
-        const store = await freshStore()
-        store.getOrCreatePatient('ANA GARCIA')
-        const found = store.findPatient('ana garcia')
-        expect(found).toBeDefined()
-        expect(found.name).toBe('ANA GARCIA')
-    })
-
-    it('getPatients retorna todos los pacientes', async () => {
-        const store = await freshStore()
-        store.getOrCreatePatient('Pedro')
-        store.getOrCreatePatient('Lucía')
-        expect(store.getPatients().length).toBe(2)
+    it('normaliza espacios en el nombre al crearlo', () => {
+        const patient = store.getOrCreatePatient('  Ana Pérez  ')
+        expect(patient.name).toBe('Ana Pérez')
     })
 })
 
-describe('dataStore — médicos', () => {
-    beforeEach(() => {
-        localStorage.clear()
+// ── findPatient ───────────────────────────────────────────────────────────────
+
+describe('findPatient', () => {
+    it('retorna undefined si no existe el paciente', () => {
+        expect(store.findPatient('Desconocido')).toBeUndefined()
     })
 
-    it('findDoctor localiza al médico con credenciales correctas', async () => {
-        const store = await freshStore()
-        const doc = store.findDoctor('Dr. García', '1234')
-        expect(doc).toBeDefined()
-        expect(doc.name).toBe('Dr. García')
+    it('encuentra un paciente existente por nombre', () => {
+        store.getOrCreatePatient('Sofía Castro')
+        const found = store.findPatient('Sofía Castro')
+        expect(found).toBeDefined()
+        expect(found.name).toBe('Sofía Castro')
+    })
+})
+
+// ── findDoctor ────────────────────────────────────────────────────────────────
+
+describe('findDoctor', () => {
+    it('retorna el médico con credenciales correctas (Dr. García)', () => {
+        const doctor = store.findDoctor('Dr. García', '1234')
+        expect(doctor).toBeDefined()
+        expect(doctor.name).toBe('Dr. García')
     })
 
-    it('findDoctor retorna undefined con contraseña incorrecta', async () => {
-        const store = await freshStore()
+    it('retorna el médico con credenciales correctas (Dra. Martínez)', () => {
+        const doctor = store.findDoctor('Dra. Martínez', '5678')
+        expect(doctor).toBeDefined()
+    })
+
+    it('retorna undefined con contraseña incorrecta', () => {
         expect(store.findDoctor('Dr. García', 'wrong')).toBeUndefined()
     })
 
-    it('findDoctor retorna undefined con nombre inexistente', async () => {
-        const store = await freshStore()
+    it('retorna undefined con nombre incorrecto', () => {
         expect(store.findDoctor('Dr. Nadie', '1234')).toBeUndefined()
     })
 
-    it('findDoctor funciona insensible a mayúsculas', async () => {
-        const store = await freshStore()
-        const doc = store.findDoctor('dr. garcía', '1234')
-        expect(doc).toBeDefined()
+    it('es insensible a mayúsculas en el nombre del médico', () => {
+        const doctor = store.findDoctor('dr. garcía', '1234')
+        expect(doctor).toBeDefined()
     })
 })
 
-describe('dataStore — registros', () => {
-    beforeEach(() => {
-        localStorage.clear()
+// ── addRecord ─────────────────────────────────────────────────────────────────
+
+describe('addRecord', () => {
+    it('crea un registro con todos los campos requeridos', () => {
+        const patient = store.getOrCreatePatient('Paciente Test')
+        const record = store.addRecord(patient.id, {
+            systolic: 120,
+            diastolic: 80,
+            heartRate: 70,
+            dateTime: '2025-01-01T10:00:00.000Z',
+        })
+
+        expect(record.id).toMatch(/^r_/)
+        expect(record.patientId).toBe(patient.id)
+        expect(record.systolic).toBe(120)
+        expect(record.diastolic).toBe(80)
+        expect(record.heartRate).toBe(70)
+        expect(record.observation).toBeNull()
     })
 
-    it('addRecord crea un registro vinculado al paciente', async () => {
-        const store = await freshStore()
-        const p = store.getOrCreatePatient('Luis')
-        const vitals = { systolic: 120, diastolic: 80, heartRate: 72 }
-        const r = store.addRecord(p.id, vitals)
-        expect(r.patientId).toBe(p.id)
-        expect(r.systolic).toBe(120)
-        expect(r.id).toBeTruthy()
+    it('los campos opcionales son null por defecto', () => {
+        const patient = store.getOrCreatePatient('Paciente Test')
+        const record = store.addRecord(patient.id, {
+            systolic: 115, diastolic: 75, heartRate: 65,
+        })
+        expect(record.temperature).toBeNull()
+        expect(record.oxygenSat).toBeNull()
     })
 
-    it('addRecord asigna null a campos opcionales no provistos', async () => {
-        const store = await freshStore()
-        const p = store.getOrCreatePatient('Luis')
-        const r = store.addRecord(p.id, { systolic: 120, diastolic: 80, heartRate: 72 })
-        expect(r.temperature).toBeNull()
-        expect(r.oxygenSat).toBeNull()
-        expect(r.observation).toBeNull()
+    it('guarda temperatura y saturación cuando se proporcionan', () => {
+        const patient = store.getOrCreatePatient('Paciente Test')
+        const record = store.addRecord(patient.id, {
+            systolic: 115, diastolic: 75, heartRate: 65,
+            temperature: 36.8, oxygenSat: 98,
+        })
+        expect(record.temperature).toBe(36.8)
+        expect(record.oxygenSat).toBe(98)
     })
 
-    it('getRecordsByPatient retorna sólo los registros del paciente', async () => {
-        const store = await freshStore()
-        const p1 = store.getOrCreatePatient('Ana')
-        const p2 = store.getOrCreatePatient('Beto')
-        store.addRecord(p1.id, { systolic: 120, diastolic: 80, heartRate: 72 })
-        store.addRecord(p1.id, { systolic: 115, diastolic: 75, heartRate: 68 })
-        store.addRecord(p2.id, { systolic: 130, diastolic: 85, heartRate: 80 })
+    it('usa la fecha actual si no se proporciona dateTime', () => {
+        const before = new Date().toISOString()
+        const patient = store.getOrCreatePatient('Paciente Test')
+        const record = store.addRecord(patient.id, {
+            systolic: 115, diastolic: 75, heartRate: 65,
+        })
+        const after = new Date().toISOString()
+        expect(record.dateTime >= before).toBe(true)
+        expect(record.dateTime <= after).toBe(true)
+    })
+})
+
+// ── getRecordsByPatient ───────────────────────────────────────────────────────
+
+describe('getRecordsByPatient', () => {
+    it('devuelve lista vacía para paciente sin registros', () => {
+        const patient = store.getOrCreatePatient('Sin Registros')
+        expect(store.getRecordsByPatient(patient.id)).toEqual([])
+    })
+
+    it('devuelve solo los registros del paciente indicado', () => {
+        const p1 = store.getOrCreatePatient('Paciente Uno')
+        const p2 = store.getOrCreatePatient('Paciente Dos')
+        store.addRecord(p1.id, {systolic: 120, diastolic: 80, heartRate: 70})
+        store.addRecord(p1.id, {systolic: 125, diastolic: 82, heartRate: 72})
+        store.addRecord(p2.id, {systolic: 110, diastolic: 70, heartRate: 65})
 
         expect(store.getRecordsByPatient(p1.id)).toHaveLength(2)
         expect(store.getRecordsByPatient(p2.id)).toHaveLength(1)
     })
+})
 
-    it('deleteRecord elimina el registro correctamente', async () => {
-        const store = await freshStore()
-        const p = store.getOrCreatePatient('Carmen')
-        const r = store.addRecord(p.id, { systolic: 120, diastolic: 80, heartRate: 72 })
-        expect(store.deleteRecord(r.id)).toBe(true)
-        expect(store.getRecordsByPatient(p.id)).toHaveLength(0)
+// ── deleteRecord ──────────────────────────────────────────────────────────────
+
+describe('deleteRecord', () => {
+    it('elimina un registro existente y retorna true', () => {
+        const patient = store.getOrCreatePatient('Paciente Test')
+        const record = store.addRecord(patient.id, {
+            systolic: 120, diastolic: 80, heartRate: 70,
+        })
+        const result = store.deleteRecord(record.id)
+        expect(result).toBe(true)
+        expect(store.getRecordsByPatient(patient.id)).toHaveLength(0)
     })
 
-    it('deleteRecord retorna false si el registro no existe', async () => {
-        const store = await freshStore()
-        expect(store.deleteRecord('id-inexistente')).toBe(false)
+    it('retorna false al intentar eliminar un id inexistente', () => {
+        expect(store.deleteRecord('r_inexistente_123')).toBe(false)
     })
 
-    it('addObservation guarda la observación en el registro', async () => {
-        const store = await freshStore()
-        const p = store.getOrCreatePatient('Diego')
-        const r = store.addRecord(p.id, { systolic: 120, diastolic: 80, heartRate: 72 })
-        expect(store.addObservation(r.id, 'Paciente estable')).toBe(true)
+    it('solo elimina el registro indicado, no los demás', () => {
+        const patient = store.getOrCreatePatient('Paciente Test')
+        const r1 = store.addRecord(patient.id, {systolic: 120, diastolic: 80, heartRate: 70})
+        store.addRecord(patient.id, {systolic: 125, diastolic: 82, heartRate: 72})
 
-        const records = store.getRecordsByPatient(p.id)
-        expect(records[0].observation).toBe('Paciente estable')
+        store.deleteRecord(r1.id)
+        expect(store.getRecordsByPatient(patient.id)).toHaveLength(1)
+    })
+})
+
+// ── addObservation ────────────────────────────────────────────────────────────
+
+describe('addObservation', () => {
+    it('agrega observación a un registro y retorna true', () => {
+        const patient = store.getOrCreatePatient('Paciente Test')
+        const record = store.addRecord(patient.id, {
+            systolic: 150, diastolic: 95, heartRate: 90,
+        })
+        const result = store.addObservation(record.id, 'Requiere control')
+        expect(result).toBe(true)
     })
 
-    it('addObservation retorna false si el registro no existe', async () => {
-        const store = await freshStore()
-        expect(store.addObservation('id-inexistente', 'obs')).toBe(false)
+    it('la observación queda guardada en el registro', () => {
+        const patient = store.getOrCreatePatient('Paciente Test')
+        const record = store.addRecord(patient.id, {
+            systolic: 150, diastolic: 95, heartRate: 90,
+        })
+        store.addObservation(record.id, 'Controlar en 48h')
+        const records = store.getRecordsByPatient(patient.id)
+        expect(records[0].observation).toBe('Controlar en 48h')
+    })
+
+    it('retorna false si el id del registro no existe', () => {
+        expect(store.addObservation('r_noexiste', 'obs')).toBe(false)
+    })
+
+    it('reemplaza una observación anterior', () => {
+        const patient = store.getOrCreatePatient('Paciente Test')
+        const record = store.addRecord(patient.id, {
+            systolic: 150, diastolic: 95, heartRate: 90,
+        })
+        store.addObservation(record.id, 'Primera observación')
+        store.addObservation(record.id, 'Segunda observación')
+        const records = store.getRecordsByPatient(patient.id)
+        expect(records[0].observation).toBe('Segunda observación')
     })
 })
