@@ -15,7 +15,11 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.6.2",
+<<<<<<< HEAD
     "@vitest/coverage-v8": "^4.1.0",
+=======
+    "happy-dom": "^20.8.4",
+>>>>>>> feature/pruebas-del-sistema
     "vite": "^4.5.3",
     "vitest": "^4.1.0"
   }
